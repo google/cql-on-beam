@@ -37,6 +37,7 @@
     <avro.version>1.11.1</avro.version>
     <beam.version>2.46.0</beam.version>
     <cql.version>2.6.0</cql.version>
+    <gson.version>2.10</gson.version>
     <junit.version>4.13.1</junit.version>
     <libraries-bom.version>26.10.0</libraries-bom.version>
 
@@ -165,6 +166,56 @@
     </plugins>
   </build>
 
+  <profiles>
+    <profile>
+      <id>direct-runner</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <!-- Makes the DirectRunner available when running a pipeline. -->
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.beam</groupId>
+          <artifactId>beam-runners-direct-java</artifactId>
+          <version>${beam.version}</version>
+          <scope>runtime</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+
+   <profile>
+      <id>portable-runner</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <!-- Makes the PortableRunner available when running a pipeline. -->
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.beam</groupId>
+          <artifactId>beam-runners-portability-java</artifactId>
+          <version>${beam.version}</version>
+          <scope>runtime</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>dataflow-runner</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <!-- Makes the DataflowRunner available when running a pipeline. -->
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.beam</groupId>
+          <artifactId>beam-runners-google-cloud-dataflow-java</artifactId>
+          <version>${beam.version}</version>
+          <scope>runtime</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.beam</groupId>
@@ -185,6 +236,11 @@
       <groupId>org.apache.avro</groupId>
       <artifactId>avro</artifactId>
       <version>${avro.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>${gson.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
