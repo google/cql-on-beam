@@ -17,7 +17,10 @@ package com.google.fhir.cql.beam.types;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects;
+import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.coders.DefaultCoder;
@@ -26,7 +29,7 @@ import org.cqframework.cql.elm.execution.VersionedIdentifier;
 
 /** A CQL library identifier that can be serialized by {@link AvroCoder}. */
 @DefaultCoder(AvroCoder.class)
-public final class CqlLibraryId {
+public final class CqlLibraryId implements Serializable {
   private String name;
 
   @Nullable
@@ -39,7 +42,10 @@ public final class CqlLibraryId {
     this(cqlLibraryIdentifier.getId(), cqlLibraryIdentifier.getVersion());
   }
 
-  public CqlLibraryId(String name, @Nullable String version) {
+  @JsonCreator
+  public CqlLibraryId(
+      @JsonProperty("name") String name,
+      @Nullable @JsonProperty("version") String version) {
     this.name = checkNotNull(name);
     this.version = version;
   }
@@ -49,6 +55,7 @@ public final class CqlLibraryId {
    *
    * @see https://cql.hl7.org/02-authorsguide.html#library
    */
+  @JsonProperty("name")
   public String getName() {
     return name;
   }
@@ -59,6 +66,7 @@ public final class CqlLibraryId {
    * @see https://cql.hl7.org/02-authorsguide.html#library
    */
   @Nullable
+  @JsonProperty("version")
   public String getVersion() {
     return version;
   }
