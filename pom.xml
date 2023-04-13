@@ -38,6 +38,7 @@
     <beam.version>2.46.0</beam.version>
     <cql.version>2.6.0</cql.version>
     <gson.version>2.10</gson.version>
+    <hapi.version>6.2.2</hapi.version>
     <junit.version>4.13.1</junit.version>
     <libraries-bom.version>26.10.0</libraries-bom.version>
 
@@ -245,6 +246,11 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>ca.uhn.hapi.fhir</groupId>
+        <artifactId>hapi-fhir-structures-r4</artifactId>
+        <version>${hapi.version}</version>
     </dependency>
     <dependency>
       <groupId>info.cqframework</groupId>
