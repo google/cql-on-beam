@@ -18,11 +18,24 @@ package com.google.fhir.cql.beam;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.fhir.cql.beam.EvaluateCql.EvaluateCqlOptions;
+import com.google.fhir.cql.beam.types.CqlEvaluationResult;
+import com.google.fhir.cql.beam.types.ResourceTypeAndId;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.reflect.ReflectDatumReader;
+import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.TestPipeline;
+import org.cqframework.cql.cql2elm.CqlTranslatorIncludeException;
+import org.cqframework.cql.elm.execution.VersionedIdentifier;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,6 +48,21 @@ import org.junit.runners.JUnit4;
 public class EvaluateCqlTest {
   @Rule public TemporaryFolder tempFolder = new TemporaryFolder();
   @Rule public TestPipeline testPipeline = TestPipeline.create();
+
+  private static final ResourceTypeAndId PATIENT_1_ID = new ResourceTypeAndId("Patient", "1");
+  private static final ResourceTypeAndId PATIENT_2_ID = new ResourceTypeAndId("Patient", "2");
+  private static final String PATIENT_1_RESOURCE_JSON =
+      "{\"resourceType\": \"Patient\", \"id\": \"1\"}";
+  private static final String PATIENT_2_RESOURCE_JSON =
+      "{\"resourceType\": \"Patient\", \"id\": \"2\"}";
+  private static final String PATIENT_1_CONDITION_RESOURCE_JSON = "{"
+      + "  \"resourceType\": \"Condition\","
+      + "  \"id\": \"c1\", "
+      + "  \"subject\": {\"reference\": \"Patient/1\"}, "
+      + "  \"code\": {\"coding\": ["
+      + "    {\"system\": \"http://example.com/foosystem\", \"code\": \"3\"}"
+      + "  ]}"
+      + "}";
 
   private static final ZonedDateTime EVALUATION_TIME =
       ZonedDateTime.of(2022, 1, 7, 13, 14, 15, 0, ZoneOffset.UTC);
@@ -52,72 +80,208 @@ public class EvaluateCqlTest {
     resultsFolder = tempFolder.newFolder().toPath();
   }
 
-@Test
+  private static VersionedIdentifier versionedIdentifier(String id, String version) {
+    VersionedIdentifier versionedIdentifier = new VersionedIdentifier();
+    versionedIdentifier.setId(id);
+    versionedIdentifier.setVersion(version);
+    return versionedIdentifier;
+  }
+
+  private static Collection<CqlEvaluationResult> readResults(File folder) throws IOException {
+    ReflectDatumReader<CqlEvaluationResult> reader =
+        new ReflectDatumReader<>(CqlEvaluationResult.ResultCoder.SCHEMA);
+
+    ArrayList<CqlEvaluationResult> results = new ArrayList<>();
+
+    for (File file : folder.listFiles()) {
+      try (DataFileReader<CqlEvaluationResult> fileReader =
+          new DataFileReader<CqlEvaluationResult>(file, reader)) {
+        fileReader.forEach(results::add);
+      }
+    }
+
+    return results;
+  }
+
+  private void writeLinesToFile(Path path, String... content) throws IOException {
+    Files.writeString(
+        path,
+        String.join("\n", content));
+  }
+
+  private Pipeline getTestPipeline(EvaluateCqlOptions options) {
+    return testPipeline;
+  }
+
+  @Test
+  public void assemblePipeline() throws IOException {
+    writeLinesToFile(ndjsonFolder.resolve("resources1.ndjson"),
+        PATIENT_1_RESOURCE_JSON, PATIENT_2_RESOURCE_JSON);
+    writeLinesToFile(ndjsonFolder.resolve("resources2.ndjson"), PATIENT_1_CONDITION_RESOURCE_JSON);
+    writeLinesToFile(valueSetFolder.resolve("valueset.json"),
+        "{",
+        "\"resourceType\": \"ValueSet\",",
+        "\"url\": \"http://example.com/foovalueset\",",
+        "\"expansion\": {",
+        "  \"contains\": [",
+        "    {",
+        "      \"system\": \"http://example.com/foosystem\",",
+        "      \"code\": \"3\"",
+        "    }",
+        "  ]",
+        "  }",
+        "}");
+    writeLinesToFile(cqlFolder.resolve("foo.cql"),
+        "library FooLibrary version '0.1'",
+        "valueset \"FooSet\": 'http://example.com/foovalueset'",
+        "codesystem \"FooSystem\": 'http://example.com/foosystem'",
+        "code \"Code3\": '3' from \"FooSystem\"",
+        "using FHIR version '4.0.1'",
+        "context Patient",
+        "define \"Exp1\": Count([Condition: \"FooSet\"]) > 0");
+
+    String[] args = new String[]{
+        "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+        "--valueSetFolder=" + valueSetFolder,
+        "--cqlFolder=" + cqlFolder,
+        "--cqlLibraries=[{\"name\": \"FooLibrary\"}]",
+        "--outputFilenamePrefix=" + resultsFolder.resolve("output")};
+
+    EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME);
+
+    assertThat(readResults(resultsFolder.toFile()))
+        .containsExactly(
+            new CqlEvaluationResult(
+                versionedIdentifier("FooLibrary", "0.1"),
+                PATIENT_1_ID,
+                EVALUATION_TIME,
+                ImmutableMap.of("Exp1", true)),
+            new CqlEvaluationResult(
+                versionedIdentifier("FooLibrary", "0.1"),
+                PATIENT_2_ID,
+                EVALUATION_TIME,
+                ImmutableMap.of("Exp1", false)));
+  }
+
+  @Test
+  public void libraryNotFound() throws IOException {
+    String[] args = new String[]{
+        "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+        "--valueSetFolder=" + valueSetFolder,
+        "--cqlFolder=" + cqlFolder,
+        "--cqlLibraries=[{\"name\": \"BarLibrary\"}]",
+        "--outputFilenamePrefix=" + resultsFolder.resolve("output")};
+
+    Exception e = assertThrows(CqlTranslatorIncludeException.class,
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
+    assertThat(e).hasMessageThat().contains("Could not load source");
+
+    testPipeline.enableAbandonedNodeEnforcement(false);
+  }
+
+  @Test
+  public void libraryCompilationError() throws IOException {
+    writeLinesToFile(cqlFolder.resolve("foo.cql"),
+        "library FooLibrary version '0.1'",
+        "BAD CQL");
+
+    String[] args = new String[]{
+        "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+        "--valueSetFolder=" + valueSetFolder,
+        "--cqlFolder=" + cqlFolder,
+        "--cqlLibraries=[{\"name\": \"FooLibrary\"}]",
+        "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+    };
+
+    Exception e = assertThrows(RuntimeException.class,
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
+    assertThat(e).hasMessageThat().contains("Syntax error");
+
+    testPipeline.enableAbandonedNodeEnforcement(false);
+  }
+
+  @Test
   public void cqlLibrariesFlagWithEmptyList() {
-    EvaluateCql.EvaluateCqlOptions options = EvaluateCql.pipelineOptionsFromArgs(
+    String[] args = new String[]{
         "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
         "--valueSetFolder=" + valueSetFolder,
         "--cqlFolder=" + cqlFolder,
         "--cqlLibraries=[]",
-        "--outputFilenamePrefix=" + resultsFolder.resolve("output"));
+        "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+    };
 
     Exception e = assertThrows(IllegalArgumentException.class,
-        () -> EvaluateCql.assemblePipeline(testPipeline, options, EVALUATION_TIME));
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
     assertThat(e).hasMessageThat().contains("At least one CQL library must be specified.");
   }
 
   @Test
   public void cqlLibrariesFlagNotSpecified() {
+    String[] args = new String[]{
+      "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+      "--valueSetFolder=" + valueSetFolder,
+      "--cqlFolder=" + cqlFolder,
+      "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+    };
+
     Exception e = assertThrows(IllegalArgumentException.class,
-        () -> EvaluateCql.pipelineOptionsFromArgs(
-            "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
-            "--valueSetFolder=" + valueSetFolder,
-            "--cqlFolder=" + cqlFolder,
-            "--outputFilenamePrefix=" + resultsFolder.resolve("output")));
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
     assertThat(e).hasMessageThat().contains("--cqlLibraries");
   }
 
   @Test
   public void ndjsonFhirFilePatternFlagNotSpecified() {
+    String[] args = new String[]{
+      "--valueSetFolder=" + valueSetFolder,
+      "--cqlFolder=" + cqlFolder,
+      "--cqlLibraries=[]",
+      "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+    };
+
     Exception e = assertThrows(IllegalArgumentException.class,
-        () -> EvaluateCql.pipelineOptionsFromArgs(
-            "--valueSetFolder=" + valueSetFolder,
-            "--cqlFolder=" + cqlFolder,
-            "--cqlLibraries=[]",
-            "--outputFilenamePrefix=" + resultsFolder.resolve("output")));
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
     assertThat(e).hasMessageThat().contains("--ndjsonFhirFilePattern");
   }
 
   @Test
   public void valueSetFolderFlagNotSpecified() {
+    String[] args = new String[]{
+      "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+      "--cqlFolder=" + cqlFolder,
+      "--cqlLibraries=[]",
+      "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+    };
+
     Exception e = assertThrows(IllegalArgumentException.class,
-        () -> EvaluateCql.pipelineOptionsFromArgs(
-            "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
-            "--cqlFolder=" + cqlFolder,
-            "--cqlLibraries=[]",
-            "--outputFilenamePrefix=" + resultsFolder.resolve("output")));
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
     assertThat(e).hasMessageThat().contains("--valueSetFolder");
   }
 
   @Test
   public void cqlFolderFlagNotSpecified() {
+    String[] args = new String[]{
+      "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+      "--valueSetFolder=" + valueSetFolder,
+      "--cqlLibraries=[]",
+      "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+    };
+
     Exception e = assertThrows(IllegalArgumentException.class,
-        () -> EvaluateCql.pipelineOptionsFromArgs(
-            "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
-            "--valueSetFolder=" + valueSetFolder,
-            "--cqlLibraries=[]",
-            "--outputFilenamePrefix=" + resultsFolder.resolve("output")));
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
     assertThat(e).hasMessageThat().contains("--cqlFolder");
   }
 
   @Test
   public void outputFilenamePrefixFlagNotSpecified() {
+    String[] args = new String[]{
+      "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+      "--valueSetFolder=" + valueSetFolder,
+      "--cqlFolder=" + cqlFolder,
+      "--cqlLibraries=[]"
+    };
+
     Exception e = assertThrows(IllegalArgumentException.class,
-        () -> EvaluateCql.pipelineOptionsFromArgs(
-            "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
-            "--valueSetFolder=" + valueSetFolder,
-            "--cqlFolder=" + cqlFolder,
-            "--cqlLibraries=[]"));
+        () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
     assertThat(e).hasMessageThat().contains("--outputFilenamePrefix");
   }
 }

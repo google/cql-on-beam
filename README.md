@@ -66,7 +66,6 @@ Dataflow.")
 
 ```
 mvn compile exec:java -e \
-  -Dexec.mainClass=com.google.fhir.cql.beam.EvaluateCql \
   -Dexec.args=" \
     --ndjsonFhirFilePattern='$NDJSON_FHIR_FILE_PATTERN' \
     --cqlFolder='$CQL_FOLDER' \
