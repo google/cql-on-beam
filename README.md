@@ -198,9 +198,9 @@ The output of the query should looking similar to the following:
 
 ## Feedback and getting help
 
-You may create a [GitHub issue](https://github.com/google/fhir-cql-beam/issues)
+You may create a [GitHub issue](https://github.com/google/cql-on-beam/issues)
 for bugs and feature requests or, for more open ended conversations, start a
-[GitHub discussion](https://github.com/google/fhir-cql-beam/discussions).
+[GitHub discussion](https://github.com/google/cql-on-beam/discussions).
 
 ## Disclaimer
 
