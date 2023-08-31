@@ -164,10 +164,12 @@ bq load --source_format=AVRO --use_avro_logical_types \
 bq query --use_legacy_sql=false \
 "
 CREATE TEMP FUNCTION GetValue(
-  expression_name STRING, results ARRAY<STRUCT<key STRING, value BOOL>>)
+  expression_name STRING, results ARRAY<STRUCT<key STRING, value STRUCT<booleanValue BOOLEAN, 
+  decimalValue float64, intValue INT64, stringValue STRING, valueType STRING>>>)
 RETURNS bool
 AS (
-  (SELECT value FROM UNNEST(results) WHERE key = expression_name)
+  (SELECT IF(value.valueType = "BOOLEAN", value.booleanValue, NULL) 
+  FROM UNNEST(results) WHERE key = expression_name)
 );
 
 SELECT libraryId.name, libraryId.version,

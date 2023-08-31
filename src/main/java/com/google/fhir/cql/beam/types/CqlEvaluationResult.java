@@ -67,7 +67,9 @@ public final class CqlEvaluationResult {
             .name("results")
                 .type(unionOf()
                     .nullType().and()
-                    .map().values().unionOf().nullType().and().booleanType().endUnion()
+                    .map().values().unionOf()
+                        .nullType().and()
+                        .type(schemaFor(GenericExpressionValue.class)).endUnion()
                     .endUnion())
                 .noDefault()
         .endRecord();
@@ -96,7 +98,7 @@ public final class CqlEvaluationResult {
   private ResourceTypeAndId contextId;
   private long evaluationTime;
   @Nullable private String error;
-  @Nullable private Map<String, Boolean> results;
+  @Nullable private Map<String, GenericExpressionValue> results;
 
   // Required for AvroCoder.
   public CqlEvaluationResult() {}
@@ -105,11 +107,12 @@ public final class CqlEvaluationResult {
       VersionedIdentifier cqlLibraryIdentifier,
       ResourceTypeAndId contextId,
       ZonedDateTime evaluationDateTime,
-      Map<String, Boolean> results) {
+      Map<String, GenericExpressionValue> results) {
     this.libraryId = new CqlLibraryId(cqlLibraryIdentifier);
     this.contextId = checkNotNull(contextId);
     this.evaluationTime = evaluationDateTime.toInstant().toEpochMilli();
-    this.results = Collections.unmodifiableMap(new HashMap<>(results));
+    this.results =
+        Collections.unmodifiableMap(new HashMap<String, GenericExpressionValue>(results));
   }
 
   public CqlEvaluationResult(
@@ -139,7 +142,7 @@ public final class CqlEvaluationResult {
     return error;
   }
 
-  public Map<String, Boolean> getResults() {
+  public Map<String, GenericExpressionValue> getResults() {
     return results;
   }
 

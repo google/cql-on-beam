@@ -96,7 +96,9 @@ public class CqlEvaluationResultTest {
 
   @Test
   public void getResults() {
-    Map<String, Boolean> results = ImmutableMap.of("Foo", true, "Bar", false);
+    Map<String, GenericExpressionValue> results =
+        ImmutableMap.of(
+            "Foo", new GenericExpressionValue(true), "Bar", new GenericExpressionValue(false));
 
     CqlEvaluationResult result =
         new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, results);
@@ -107,28 +109,34 @@ public class CqlEvaluationResultTest {
   @Test
   public void equals() {
     new EqualsTester()
-      .addEqualityGroup(
-          new CqlEvaluationResult(
-              libraryBar1, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of("Numerator", false)),
-          new CqlEvaluationResult(
-              libraryBar1, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of("Numerator", false)))
-      .addEqualityGroup(
-          new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of()))
-      .addEqualityGroup(
-          new CqlEvaluationResult(libraryBar2, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of()))
-      .addEqualityGroup(
-          new CqlEvaluationResult(libraryBar2, PATIENT_1, EVALUATION_TIME_2, ImmutableMap.of()))
-      .addEqualityGroup(
-          new CqlEvaluationResult(
-              libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Exception")),
-          new CqlEvaluationResult(
-              libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Exception")))
-      .addEqualityGroup(
-          new CqlEvaluationResult(
-              libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Other exception")))
-      .addEqualityGroup(
-          new CqlEvaluationResult(
-              libraryBar1, PATIENT_1, EVALUATION_TIME_2, new RuntimeException("Exception")))
-      .testEquals();
+        .addEqualityGroup(
+            new CqlEvaluationResult(
+                libraryBar1,
+                PATIENT_1,
+                EVALUATION_TIME_1,
+                ImmutableMap.of("Numerator", new GenericExpressionValue(false))),
+            new CqlEvaluationResult(
+                libraryBar1,
+                PATIENT_1,
+                EVALUATION_TIME_1,
+                ImmutableMap.of("Numerator", new GenericExpressionValue(false))))
+        .addEqualityGroup(
+            new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of()))
+        .addEqualityGroup(
+            new CqlEvaluationResult(libraryBar2, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of()))
+        .addEqualityGroup(
+            new CqlEvaluationResult(libraryBar2, PATIENT_1, EVALUATION_TIME_2, ImmutableMap.of()))
+        .addEqualityGroup(
+            new CqlEvaluationResult(
+                libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Exception")),
+            new CqlEvaluationResult(
+                libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Exception")))
+        .addEqualityGroup(
+            new CqlEvaluationResult(
+                libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Other exception")))
+        .addEqualityGroup(
+            new CqlEvaluationResult(
+                libraryBar1, PATIENT_1, EVALUATION_TIME_2, new RuntimeException("Exception")))
+        .testEquals();
   }
 }

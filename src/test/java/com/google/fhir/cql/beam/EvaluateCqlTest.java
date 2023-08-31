@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.fhir.cql.beam.EvaluateCql.EvaluateCqlOptions;
 import com.google.fhir.cql.beam.types.CqlEvaluationResult;
+import com.google.fhir.cql.beam.types.GenericExpressionValue;
 import com.google.fhir.cql.beam.types.ResourceTypeAndId;
 import java.io.File;
 import java.io.IOException;
@@ -155,12 +156,12 @@ public class EvaluateCqlTest {
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
-                ImmutableMap.of("Exp1", true)),
+                ImmutableMap.of("Exp1", new GenericExpressionValue(true))),
             new CqlEvaluationResult(
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_2_ID,
                 EVALUATION_TIME,
-                ImmutableMap.of("Exp1", false)));
+                ImmutableMap.of("Exp1", new GenericExpressionValue(false))));
   }
 
   @Test

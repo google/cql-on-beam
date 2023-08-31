@@ -23,8 +23,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.fhir.cql.beam.types.CqlEvaluationResult;
 import com.google.fhir.cql.beam.types.CqlLibraryId;
+import com.google.fhir.cql.beam.types.GenericExpressionValue;
 import com.google.fhir.cql.beam.types.ResourceTypeAndId;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -161,7 +163,7 @@ public class EvaluateCqlForContextFnTest {
   }
 
   @Test
-  public void resultsPopulated() {
+  public void resultsPopulatedBoolean() {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
@@ -176,10 +178,106 @@ public class EvaluateCqlForContextFnTest {
             EVALUATION_TIME,
             FhirVersionEnum.R4)));
 
-    PAssert.thatSingleton(output).satisfies(result -> {
-      assertThat(result.getResults()).containsExactly("Exp1", true);
-      return null;
-    });
+    PAssert.thatSingleton(output)
+        .satisfies(
+            result -> {
+              assertThat(result.getResults())
+                  .containsExactly("Exp1", new GenericExpressionValue(true));
+              return null;
+            });
+
+    testPipeline.run().waitUntilFinish();
+  }
+
+  @Test
+  public void resultsPopulatedDecimal() {
+    ImmutableMap<ResourceTypeAndId, Iterable<String>> input =
+        ImmutableMap.of(PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
+
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "define \"Exp1\": 5.0"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        FhirVersionEnum.R4)));
+
+    PAssert.thatSingleton(output)
+        .satisfies(
+            result -> {
+              assertThat(result.getResults())
+                  .containsExactly("Exp1", new GenericExpressionValue(new BigDecimal("5.0")));
+              return null;
+            });
+
+    testPipeline.run().waitUntilFinish();
+  }
+
+  @Test
+  public void resultsPopulatedString() {
+    ImmutableMap<ResourceTypeAndId, Iterable<String>> input =
+        ImmutableMap.of(PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
+
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "define \"Exp1\": 'foo'"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        FhirVersionEnum.R4)));
+
+    PAssert.thatSingleton(output)
+        .satisfies(
+            result -> {
+              assertThat(result.getResults())
+                  .containsExactly("Exp1", new GenericExpressionValue("foo"));
+              return null;
+            });
+
+    testPipeline.run().waitUntilFinish();
+  }
+
+  @Test
+  public void resultsPopulatedInteger() {
+    ImmutableMap<ResourceTypeAndId, Iterable<String>> input =
+        ImmutableMap.of(PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
+
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "define \"Exp1\": 1"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        FhirVersionEnum.R4)));
+
+    PAssert.thatSingleton(output)
+        .satisfies(
+            result -> {
+              assertThat(result.getResults())
+                  .containsExactly("Exp1", new GenericExpressionValue(1));
+              return null;
+            });
 
     testPipeline.run().waitUntilFinish();
   }
@@ -201,10 +299,12 @@ public class EvaluateCqlForContextFnTest {
             EVALUATION_TIME,
             FhirVersionEnum.R4)));
 
-    PAssert.thatSingleton(output).satisfies(result -> {
-      assertThat(result.getResults()).containsExactly("Exp1", null);
-      return null;
-    });
+    PAssert.thatSingleton(output)
+        .satisfies(
+            result -> {
+              assertThat(result.getResults()).containsExactly("Exp1", null);
+              return null;
+            });
 
     testPipeline.run().waitUntilFinish();
   }
@@ -240,10 +340,13 @@ public class EvaluateCqlForContextFnTest {
             EVALUATION_TIME,
             FhirVersionEnum.R4)));
 
-    PAssert.thatSingleton(output).satisfies(result -> {
-      assertThat(result.getResults()).containsExactly("Exp1", true);
-      return null;
-    });
+    PAssert.thatSingleton(output)
+        .satisfies(
+            result -> {
+              assertThat(result.getResults())
+                  .containsExactly("Exp1", new GenericExpressionValue(true));
+              return null;
+            });
 
     testPipeline.run().waitUntilFinish();
   }
@@ -302,21 +405,25 @@ public class EvaluateCqlForContextFnTest {
   }
 
   @Test
-  public void expressionsThatDontReturnBooleansAreSkipped() {
+  public void expressionsThatAreNotSupportedAreSkipped() {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Unfiltered\n"
-                    + "define \"Exp1\": 'foo'"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "context Patient\n"
+                                + "define \"Exp1\": @2013-01-01"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getResults()).isEmpty();
@@ -400,17 +507,18 @@ public class EvaluateCqlForContextFnTest {
             EVALUATION_TIME,
             FhirVersionEnum.R4)));
 
-    PAssert.that(output).containsInAnyOrder(
-      new CqlEvaluationResult(
-          versionedIdentifier("FooLibrary", "0.1"),
-          PATIENT_1_ID,
-          EVALUATION_TIME,
-          ImmutableMap.of("Exp1", true)),
-      new CqlEvaluationResult(
-          versionedIdentifier("BarLibrary", "0.5"),
-          PATIENT_1_ID,
-          EVALUATION_TIME,
-          ImmutableMap.of("ExpA", false)));
+    PAssert.that(output)
+        .containsInAnyOrder(
+            new CqlEvaluationResult(
+                versionedIdentifier("FooLibrary", "0.1"),
+                PATIENT_1_ID,
+                EVALUATION_TIME,
+                ImmutableMap.of("Exp1", new GenericExpressionValue(true))),
+            new CqlEvaluationResult(
+                versionedIdentifier("BarLibrary", "0.5"),
+                PATIENT_1_ID,
+                EVALUATION_TIME,
+                ImmutableMap.of("ExpA", new GenericExpressionValue(false))));
 
     testPipeline.run().waitUntilFinish();
   }
@@ -433,17 +541,18 @@ public class EvaluateCqlForContextFnTest {
             EVALUATION_TIME,
             FhirVersionEnum.R4)));
 
-    PAssert.that(output).containsInAnyOrder(
-      new CqlEvaluationResult(
-          versionedIdentifier("FooLibrary", "0.1"),
-          PATIENT_1_ID,
-          EVALUATION_TIME,
-          ImmutableMap.of("YoungerThan18", false)),
-      new CqlEvaluationResult(
-          versionedIdentifier("FooLibrary", "0.1"),
-          PATIENT_2_ID,
-          EVALUATION_TIME,
-          ImmutableMap.of("YoungerThan18", true)));
+    PAssert.that(output)
+        .containsInAnyOrder(
+            new CqlEvaluationResult(
+                versionedIdentifier("FooLibrary", "0.1"),
+                PATIENT_1_ID,
+                EVALUATION_TIME,
+                ImmutableMap.of("YoungerThan18", new GenericExpressionValue(false))),
+            new CqlEvaluationResult(
+                versionedIdentifier("FooLibrary", "0.1"),
+                PATIENT_2_ID,
+                EVALUATION_TIME,
+                ImmutableMap.of("YoungerThan18", new GenericExpressionValue(true))));
 
     testPipeline.run().waitUntilFinish();
   }

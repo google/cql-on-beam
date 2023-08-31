@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.fhir.cql.beam.types.CqlEvaluationResult;
 import com.google.fhir.cql.beam.types.CqlLibraryId;
+import com.google.fhir.cql.beam.types.GenericExpressionValue;
 import com.google.fhir.cql.beam.types.ResourceTypeAndId;
 import java.io.IOException;
 import java.io.InputStream;
@@ -188,26 +189,24 @@ public final class EvaluateCqlForContextFn
     }
   }
 
-  private Map<String, Boolean> evaluate(
+  private Map<String, GenericExpressionValue> evaluate(
       Library library, Context context, ResourceTypeAndId contextValue) {
-    HashMap<String, Boolean> results = new HashMap<>();
+    HashMap<String, GenericExpressionValue> results = new HashMap<>();
+
     for (ExpressionDef expression : library.getStatements().getDef()) {
       if (!expression.getContext().equals(contextValue.getType())
-          || !isBooleanExpression(expression)) {
+          || !GenericExpressionValue.isSupportedExpression(expression)) {
         continue;
       }
-      if (results.putIfAbsent(expression.getName(), (Boolean) expression.evaluate(context))
-          != null) {
+
+      Object value = expression.evaluate(context);
+      GenericExpressionValue genericVal = value != null ? GenericExpressionValue.from(value) : null;
+
+      if (results.putIfAbsent(expression.getName(), genericVal) != null) {
         throw new InternalError("Duplicate expression name: " + expression.getName());
       }
     }
     return results;
-  }
-
-  private static boolean isBooleanExpression(ExpressionDef expression) {
-    return expression.getResultTypeName() != null
-        && expression.getResultTypeName().getNamespaceURI().equals("urn:hl7-org:elm-types:r1")
-        && expression.getResultTypeName().getLocalPart().equals("Boolean");
   }
 
   private Context createContext(
