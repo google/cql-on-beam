@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
@@ -42,12 +43,19 @@ import java.util.function.Predicate;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.avro.io.AvroIO;
 import org.apache.beam.sdk.io.TextIO;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.TypedRead;
+import org.apache.beam.sdk.options.Default;
+import org.apache.beam.sdk.options.DefaultValueFactory;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.options.Validation.Required;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
 import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.cqframework.cql.cql2elm.CqlCompilerException.ErrorSeverity;
 import org.cqframework.cql.cql2elm.CqlTranslatorOptions;
@@ -65,14 +73,37 @@ import org.opencds.cqf.cql.evaluator.engine.elm.LibraryMapper;
  * <p>See README.md for additional information.
  */
 public final class EvaluateCql {
-  /**
-   * Options supported by {@link EvaluateCql}.
-   */
+  /** Options supported by {@link EvaluateCql}. */
   public interface EvaluateCqlOptions extends PipelineOptions {
+
+    /** Creates the default list of BigQuery tables to run the pipeline on. */
+    class TableListDefault implements DefaultValueFactory<List<String>> {
+      @Override
+      public List<String> create(PipelineOptions options) {
+        return Arrays.asList(
+            "patient",
+            "condition",
+            "allergy_intolerance",
+            "basic",
+            "care_plan",
+            "claim",
+            "diagnostic_report",
+            "encounter",
+            "explanation_of_benefit",
+            "goal",
+            "imaging_study",
+            "immunization",
+            "medication_request",
+            "observation",
+            "organization",
+            "practitioner",
+            "procedure");
+      }
+    }
+
     @Description(
         "The file pattern of the NDJSON FHIR files to read. Follows the conventions of "
             + "https://docs.oracle.com/javase/tutorial/essential/io/fileOps.html#glob.")
-    @Required
     String getNdjsonFhirFilePattern();
 
     void setNdjsonFhirFilePattern(String value);
@@ -109,6 +140,28 @@ public final class EvaluateCql {
     String getOutputFilenamePrefix();
 
     void setOutputFilenamePrefix(String value);
+
+    @Description("Specifies whether to read from BigQuery.")
+    @Default.Boolean(false)
+    Boolean getReadFromBigQuery();
+
+    void setReadFromBigQuery(Boolean value);
+
+    @Description("The BigQuery project where the dataset to read from is located.")
+    String getBigQueryProjectName();
+
+    void setBigQueryProjectName(String value);
+
+    @Description("The BigQuery dataset to read from.")
+    String getDatasetName();
+
+    void setDatasetName(String value);
+
+    @Description("The set of tables to read from the BigQuery dataset.")
+    @Default.InstanceFactory(TableListDefault.class)
+    List<String> getBigQueryTables();
+
+    void setBigQueryTables(List<String> value);
   }
 
   private static ImmutableList<String> loadFilesInDirectory(
@@ -171,15 +224,58 @@ public final class EvaluateCql {
         .collect(toImmutableList());
   }
 
+  private static PCollection<String> fetchSourceData(
+      Pipeline pipeline, EvaluateCqlOptions options) {
+    if (!options.getReadFromBigQuery()) {
+      checkArgument(
+          !(options.getNdjsonFhirFilePattern() == null),
+          "NDJSON FHIR files path must be specified if not reading from BigQuery.");
+      return pipeline.apply("ReadNDJSON", TextIO.read().from(options.getNdjsonFhirFilePattern()));
+    }
+
+    checkArgument(
+        !(options.getBigQueryProjectName() == null),
+        "BigQuery project must be specified when reading from BigQuery.");
+
+    checkArgument(
+        !(options.getDatasetName() == null),
+        "BigQuery dataset must be specified when reading from BigQuery.");
+
+    PCollectionList<String> allTableRows = PCollectionList.<String>empty(pipeline);
+    for (String table : options.getBigQueryTables()) {
+      PCollection<String> tableRows =
+          pipeline
+              .apply(
+                  "ReadBigQueryTableRows",
+                  BigQueryIO.readTableRows()
+                      .from(
+                          String.format(
+                              "%s:%s.%s",
+                              options.getBigQueryProjectName(), options.getDatasetName(), table))
+                      .withMethod(TypedRead.Method.DIRECT_READ))
+              .apply(
+                  "ConvertTableRowToJson",
+                  ParDo.of(TableRowToJsonConverter.from(table, options.getBigQueryTables())));
+
+      allTableRows = allTableRows.and(tableRows);
+    }
+    // Merges the different PCollection of JSON strings into a single logical PCollection.
+    return allTableRows.apply(Flatten.pCollections());
+  }
+
   private static void assemblePipeline(
       Pipeline pipeline, EvaluateCqlOptions options, ZonedDateTime evaluationDateTime) {
     checkArgument(
         !options.getCqlLibraries().isEmpty(), "At least one CQL library must be specified.");
 
-    pipeline
-        .apply("ReadNDJSON", TextIO.read().from(options.getNdjsonFhirFilePattern()))
-        .apply("KeyForContext", ParDo.of(new KeyForContextFn(
-            "Patient", new ModelManager().resolveModel("FHIR", "4.0.1").getModelInfo())))
+    PCollection<String> sourceData = fetchSourceData(pipeline, options);
+
+    sourceData
+        .apply(
+            "KeyForContext",
+            ParDo.of(
+                new KeyForContextFn(
+                    "Patient", new ModelManager().resolveModel("FHIR", "4.0.1").getModelInfo())))
         .apply("GroupByContext", GroupByKey.<ResourceTypeAndId, String>create())
         .apply(
             "EvaluateCql",

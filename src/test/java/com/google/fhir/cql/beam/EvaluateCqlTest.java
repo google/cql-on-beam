@@ -232,17 +232,66 @@ public class EvaluateCqlTest {
 
   @Test
   public void ndjsonFhirFilePatternFlagNotSpecified() {
-    String[] args = new String[]{
-      "--valueSetFolder=" + valueSetFolder,
-      "--cqlFolder=" + cqlFolder,
-      "--cqlLibraries=[]",
-      "--outputFilenamePrefix=" + resultsFolder.resolve("output")
-    };
+    String[] args =
+        new String[] {
+          "--valueSetFolder=" + valueSetFolder,
+          "--cqlFolder=" + cqlFolder,
+          "--cqlLibraries=[{\"name\": \"BarLibrary\"}]",
+          "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+        };
 
     Exception e = assertThrows(IllegalArgumentException.class,
         () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
-    assertThat(e).hasMessageThat().contains("--ndjsonFhirFilePattern");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("NDJSON FHIR files path must be specified if not reading from BigQuery.");
   }
+
+  @Test
+  public void bigQueryProjectNameFlagNotSpecified() {
+    String[] args =
+        new String[] {
+          "--readFromBigQuery=true",
+          "--valueSetFolder=" + valueSetFolder,
+          "--cqlFolder=" + cqlFolder,
+          "--cqlLibraries=[{\"name\": \"BarLibrary\"}]",
+          "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+        };
+
+    Exception e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("BigQuery project must be specified when reading from BigQuery.");
+
+    testPipeline.enableAbandonedNodeEnforcement(false);
+  }
+
+  @Test
+  public void bigQueryDatasetNameFlagNotSpecified() {
+    String[] args =
+        new String[] {
+          "--readFromBigQuery=true",
+          "--bigQueryProjectName=\"my_project\"",
+          "--valueSetFolder=" + valueSetFolder,
+          "--cqlFolder=" + cqlFolder,
+          "--cqlLibraries=[{\"name\": \"BarLibrary\"}]",
+          "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+        };
+
+    Exception e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("BigQuery dataset must be specified when reading from BigQuery.");
+
+    testPipeline.enableAbandonedNodeEnforcement(false);
+  }
+
 
   @Test
   public void valueSetFolderFlagNotSpecified() {
