@@ -26,9 +26,14 @@ To get the pipeline up and running you will need:
     -   The output of invoking [`fhirStores.export`] on a Google Cloud
         Healthcare API's FHIR store. See also [Exporting FHIR resources].
     -   Generated synthetic data from [Synthea].
+-   The pipeline also supports reading FHIR data directly from BigQuery.
 -   A CQL library with boolean expression that utilizes the `Patient` context.
 -   All the required value sets persisted in FHIR JSON as [`ValueSet`]
     resources, one resource per file.
+
+#### Notes on reading FHIR data from BigQuery
+The FHIR data in BigQuery follows the [SQL on FHIR](https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md) schema.
+However, the SQL on FHIR schema has some limitations which users should be aware of. For example, primitive extensions may be omitted from the schema completely. Also Some FHIR types contain recursive structures that can be unbounded. The SQL on FHIR schema terminates the recursion at a certain depth. For more information, please refer to SQL on FHIR [documentation](https://github.com/FHIR/sql-on-fhir/blob/master/sql-on-fhir.md).
 
 [Bulk Data Access IG]: https://hl7.org/fhir/uv/bulkdata/export/index.html
 [Exporting FHIR resourcs]: https://cloud.google.com/healthcare-api/docs/how-tos/fhir-import-export#exporting_fhir_resources
@@ -99,6 +104,8 @@ project ID and Google Cloud Storage bucket, respectively.
 
 [Before you Begin]: https://cloud.google.com/dataflow/docs/quickstarts/create-pipeline-java#before-you-begin
 
+#### Reading NDJSON FHIR data
+
 ```
 CLOUD_PROJECT_ID=<PROJECT_ID>
 CLOUD_REGION=us-west1
@@ -150,6 +157,38 @@ java -jar ./target/cql-beam-bundled-0.1.jar \
   --project=$CLOUD_PROJECT_ID \
   --usePublicIps=false \
   --region=$CLOUD_REGION
+```
+
+#### Reading FHIR data from BigQuery
+In order to read FHIR data from BigQuery, you can run the same commands as above
+but with some additional arguments. Please keep in mind that if reading from
+BigQuery, you don't need to specify --ndjsonFhirFilePattern.
+
+```
+BIG_QUERY_PROJECT_ID=<BIGQUERY_PROJECT_ID>
+DATASET_NAME=<DATASET_NAME>
+
+java -jar ./target/cql-beam-bundled-0.1.jar \
+  --cqlFolder="$CQL_FOLDER" \
+  --cqlLibraries='[
+    {"name":"BreastCancerScreeningFHIR"},
+    {"name":"CervicalCancerScreeningFHIR"},
+    {"name":"ChlamydiaScreeningforWomenFHIR"},
+    {"name":"ColorectalCancerScreeningsFHIR","version":"0.0.001"},
+    {"name":"ControllingHighBloodPressureFHIR"},
+    {"name":"DiabetesHemoglobinA1cHbA1cPoorControl9FHIR"},
+    {"name":"DischargedonAntithromboticTherapyFHIR"}
+  ]' \
+  --valueSetFolder="$VALUE_SET_FOLDER" \
+  --outputFilenamePrefix="$OUTPUT_FILENAME_PREFIX" \
+  --runner=DataflowRunner \
+  --gcpTempLocation=$GCS_BUCKET/tmp \
+  --project=$CLOUD_PROJECT_ID \
+  --usePublicIps=false \
+  --region=$CLOUD_REGION \
+  --readFromBigQuery=true \
+  --bigQueryProjectName=$BIG_QUERY_PROJECT_ID \
+  --datasetName=$DATASET_NAME
 ```
 
 You may then analyze the results in BigQuery.
