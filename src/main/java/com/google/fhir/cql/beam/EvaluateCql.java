@@ -162,6 +162,23 @@ public final class EvaluateCql {
     List<String> getBigQueryTables();
 
     void setBigQueryTables(List<String> value);
+
+    @Description("The CQL parameter name that represents 'Measurement Period'.")
+    String getMeasurementPeriodName();
+
+    void setMeasurementPeriodName(String value);
+
+    @Description(
+        "The start date of the measurement period. This should be in the format 'yyyy-MM-dd'.")
+    String getMeasurementPeriodStartDate();
+
+    void setMeasurementPeriodStartDate(String value);
+
+    @Description(
+        "The end date of the measurement period. This should be in the format 'yyyy-MM-dd'.")
+    String getMeasurementPeriodEndDate();
+
+    void setMeasurementPeriodEndDate(String value);
   }
 
   private static ImmutableList<String> loadFilesInDirectory(
@@ -263,10 +280,30 @@ public final class EvaluateCql {
     return allTableRows.apply(Flatten.pCollections());
   }
 
+  private static Boolean measurementPeriodParamsAreValid(EvaluateCqlOptions options) {
+    if (options.getMeasurementPeriodName() != null) {
+      return (options.getMeasurementPeriodStartDate() != null
+          && options.getMeasurementPeriodEndDate() != null);
+    }
+    if (options.getMeasurementPeriodStartDate() != null) {
+      return (options.getMeasurementPeriodName() != null
+          && options.getMeasurementPeriodEndDate() != null);
+    }
+    if (options.getMeasurementPeriodEndDate() != null) {
+      return (options.getMeasurementPeriodName() != null
+          && options.getMeasurementPeriodStartDate() != null);
+    }
+    return true;
+  }
+
   private static void assemblePipeline(
       Pipeline pipeline, EvaluateCqlOptions options, ZonedDateTime evaluationDateTime) {
     checkArgument(
         !options.getCqlLibraries().isEmpty(), "At least one CQL library must be specified.");
+
+    checkArgument(
+        measurementPeriodParamsAreValid(options),
+        "measurementPeriod(Name|StartDate|EndDate) need to be specified all together.");
 
     PCollection<String> sourceData = fetchSourceData(pipeline, options);
 
@@ -287,6 +324,9 @@ public final class EvaluateCql {
                         toPath(options.getValueSetFolder()),
                         (path) -> path.toString().endsWith(".json")),
                     evaluationDateTime,
+                    options.getMeasurementPeriodName(),
+                    options.getMeasurementPeriodStartDate(),
+                    options.getMeasurementPeriodEndDate(),
                     FhirVersionEnum.R4)))
         .apply(
             "WriteCqlOutput",

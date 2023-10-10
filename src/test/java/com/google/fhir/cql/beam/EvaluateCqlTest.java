@@ -171,6 +171,68 @@ public class EvaluateCqlTest {
   }
 
   @Test
+  public void assemblePipeline_provideMeasurementPeriodAsParameter() throws IOException {
+    writeLinesToFile(
+        ndjsonFolder.resolve("resources1.ndjson"),
+        PATIENT_1_RESOURCE_JSON,
+        PATIENT_2_RESOURCE_JSON);
+    writeLinesToFile(ndjsonFolder.resolve("resources2.ndjson"), PATIENT_1_CONDITION_RESOURCE_JSON);
+    writeLinesToFile(
+        valueSetFolder.resolve("valueset.json"),
+        "{",
+        "\"resourceType\": \"ValueSet\",",
+        "\"url\": \"http://example.com/foovalueset\",",
+        "\"expansion\": {",
+        "  \"contains\": [",
+        "    {",
+        "      \"system\": \"http://example.com/foosystem\",",
+        "      \"code\": \"3\"",
+        "    }",
+        "  ]",
+        "  }",
+        "}");
+    writeLinesToFile(
+        cqlFolder.resolve("foo.cql"),
+        "library FooLibrary version '0.1'",
+        "valueset \"FooSet\": 'http://example.com/foovalueset'",
+        "codesystem \"FooSystem\": 'http://example.com/foosystem'",
+        "code \"Code3\": '3' from \"FooSystem\"",
+        "using FHIR version '4.0.1'",
+        "parameter \"Measurement Period\" Interval<DateTime>",
+        "context Patient",
+        "define \"Exp1\": Count([Condition: \"FooSet\"]) > 0");
+
+    String[] args =
+        new String[] {
+          "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
+          "--valueSetFolder=" + valueSetFolder,
+          "--cqlFolder=" + cqlFolder,
+          "--cqlLibraries=[{\"name\": \"FooLibrary\"}]",
+          "--measurementPeriodName=Measurement Period",
+          "--measurementPeriodStartDate=2022-01-12",
+          "--measurementPeriodEndDate=2023-01-12",
+          "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+        };
+
+    EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME);
+
+    assertThat(readResults(resultsFolder.toFile()))
+        .containsExactly(
+            new CqlEvaluationResult(
+                versionedIdentifier("FooLibrary", "0.1"),
+                PATIENT_1_ID,
+                EVALUATION_TIME,
+                new MeasurementPeriod("2022-01-12", "2023-01-12"),
+                ImmutableMap.of("Exp1", new GenericExpressionValue(true))),
+            new CqlEvaluationResult(
+                versionedIdentifier("FooLibrary", "0.1"),
+                PATIENT_2_ID,
+                EVALUATION_TIME,
+                new MeasurementPeriod("2022-01-12", "2023-01-12"),
+                ImmutableMap.of("Exp1", new GenericExpressionValue(false))));
+  }
+
+  @Test
   public void libraryNotFound() throws IOException {
     String[] args = new String[]{
         "--ndjsonFhirFilePattern=" + ndjsonFolder + "/*",
@@ -251,6 +313,69 @@ public class EvaluateCqlTest {
     assertThat(e)
         .hasMessageThat()
         .contains("NDJSON FHIR files path must be specified if not reading from BigQuery.");
+  }
+
+  @Test
+  public void measurementPeriodNameNotSpecified() {
+    String[] args =
+        new String[] {
+          "--valueSetFolder=" + valueSetFolder,
+          "--cqlFolder=" + cqlFolder,
+          "--cqlLibraries=[{\"name\": \"BarLibrary\"}]",
+          "--measurementPeriodStartDate=2022-01-12",
+          "--measurementPeriodEndDate=2023-01-12",
+          "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+        };
+
+    Exception e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("measurementPeriod(Name|StartDate|EndDate) need to be specified all together.");
+  }
+
+  @Test
+  public void measurementPeriodStartDateNotSpecified() {
+    String[] args =
+        new String[] {
+          "--valueSetFolder=" + valueSetFolder,
+          "--cqlFolder=" + cqlFolder,
+          "--cqlLibraries=[{\"name\": \"BarLibrary\"}]",
+          "--measurementPeriodName=Measurement Period",
+          "--measurementPeriodEndDate=2022-01-12",
+          "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+        };
+
+    Exception e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("measurementPeriod(Name|StartDate|EndDate) need to be specified all together.");
+  }
+
+  @Test
+  public void measurementPeriodEndDateNotSpecified() {
+    String[] args =
+        new String[] {
+          "--valueSetFolder=" + valueSetFolder,
+          "--cqlFolder=" + cqlFolder,
+          "--cqlLibraries=[{\"name\": \"BarLibrary\"}]",
+          "--measurementPeriodName=Measurement Period",
+          "--measurementPeriodStartDate=2022-01-12",
+          "--outputFilenamePrefix=" + resultsFolder.resolve("output")
+        };
+
+    Exception e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EvaluateCql.runPipeline(this::getTestPipeline, args, EVALUATION_TIME));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("measurementPeriod(Name|StartDate|EndDate) need to be specified all together.");
   }
 
   @Test

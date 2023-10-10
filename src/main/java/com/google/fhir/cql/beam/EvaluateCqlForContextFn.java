@@ -38,6 +38,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.Collection;
@@ -132,10 +135,16 @@ public final class EvaluateCqlForContextFn
     }
   }
 
+  private static final String MEASUREMENT_PERIOD_DEFAULT_WITHOUT_SPACE = "MeasurementPeriod";
+  private static final String MEASUREMENT_PERIOD_DEFAULT_WITH_SPACE = "Measurement Period";
+
   private final ImmutableList<SerializableLibraryWrapper> cqlSources;
   private final ImmutableSet<CqlLibraryId> cqlLibraryIds;
   private final ImmutableList<String> valueSetJsonResources;
   private final ZonedDateTime evaluationDateTime;
+  private final String measurementPeriodName;
+  private final String measurementPeriodStartDate;
+  private final String measurementPeriodEndDate;
   private final FhirVersionEnum fhirVersion;
 
   private transient ImmutableSet<VersionedIdentifier> cqlLibraryVersionedIdentifiers;
@@ -149,12 +158,18 @@ public final class EvaluateCqlForContextFn
       Set<CqlLibraryId> cqlLibraryIds,
       Collection<String> valueSetJsonResources,
       ZonedDateTime evaluationDateTime,
+      String measurementPeriodName,
+      String measurementPeriodStartDate,
+      String measurementPeriodEndDate,
       FhirVersionEnum fhirVersion) {
     this.cqlSources =
         cqlSources.stream().map(SerializableLibraryWrapper::new).collect(toImmutableList());
     this.cqlLibraryIds = ImmutableSet.copyOf(cqlLibraryIds);
     this.valueSetJsonResources = ImmutableList.copyOf(valueSetJsonResources);
     this.evaluationDateTime = checkNotNull(evaluationDateTime);
+    this.measurementPeriodName = measurementPeriodName;
+    this.measurementPeriodStartDate = measurementPeriodStartDate;
+    this.measurementPeriodEndDate = measurementPeriodEndDate;
     this.fhirVersion = checkNotNull(fhirVersion);
   }
 
@@ -201,7 +216,16 @@ public final class EvaluateCqlForContextFn
     }
   }
 
-  private MeasurementPeriod fetchMeasurementPeriod(Library library, Context context) {
+  private DateTime convertDateStringToCqlDate(String date) {
+    try {
+      DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+      return DateTime.fromJavaDate(dateFormat.parse(date));
+    } catch (ParseException e) {
+      throw new IllegalArgumentException("Failed to parse date string: " + date, e);
+    }
+  }
+
+  private MeasurementPeriod fetchDefaultMeasurementPeriod(Library library, Context context) {
     if (library.getParameters() == null) {
       return new MeasurementPeriod();
     }
@@ -209,8 +233,8 @@ public final class EvaluateCqlForContextFn
     for (ParameterDef parameter : library.getParameters().getDef()) {
       // Based on the assumption that normally measurement period parameter is named this way
       // in CQL scripts.
-      if (parameter.getName().equals("MeasurementPeriod")
-          || parameter.getName().equals("Measurement Period")) {
+      if (parameter.getName().equals(MEASUREMENT_PERIOD_DEFAULT_WITHOUT_SPACE)
+          || parameter.getName().equals(MEASUREMENT_PERIOD_DEFAULT_WITH_SPACE)) {
         Interval interval = (Interval) parameter.getDefault().evaluate(context);
         DateTime startDate = (DateTime) interval.getLow();
         DateTime endDate = (DateTime) interval.getHigh();
@@ -220,6 +244,18 @@ public final class EvaluateCqlForContextFn
       }
     }
     return new MeasurementPeriod();
+  }
+
+  private MeasurementPeriod fetchMeasurementPeriod(Library library, Context context) {
+
+    if (measurementPeriodStartDate != null && measurementPeriodEndDate != null) {
+      // Truncating the exact time of the specified date as that is not needed.
+      return new MeasurementPeriod(
+          truncateDateTime(convertDateStringToCqlDate(measurementPeriodStartDate)).toString(),
+          truncateDateTime(convertDateStringToCqlDate(measurementPeriodEndDate)).toString());
+    }
+
+    return fetchDefaultMeasurementPeriod(library, context);
   }
 
   private Date truncateDateTime(DateTime dateTime) {
@@ -248,6 +284,19 @@ public final class EvaluateCqlForContextFn
     return results;
   }
 
+  private Boolean isParameterNameValid(Library library, String parameterName) {
+    if (library.getParameters() == null) {
+      return false;
+    }
+
+    for (ParameterDef parameter : library.getParameters().getDef()) {
+      if (parameter.getName().equals(parameterName)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private Context createContext(
       Library library, RetrieveProvider retrieveProvider, ResourceTypeAndId contextValue) {
     Context context = new FixedContext(library, evaluationDateTime, contextValue);
@@ -256,6 +305,20 @@ public final class EvaluateCqlForContextFn
     context.registerTerminologyProvider(terminologyProvider);
     context.registerDataProvider(
         "http://hl7.org/fhir", new CompositeDataProvider(modelResolver, retrieveProvider));
+
+    if (measurementPeriodStartDate != null && measurementPeriodEndDate != null) {
+      if (!isParameterNameValid(library, measurementPeriodName)) {
+        throw new IllegalArgumentException(
+            "The measurement period parameter specified doest not exist.");
+      }
+      Interval measurementPeriod =
+          new Interval(
+              convertDateStringToCqlDate(measurementPeriodStartDate),
+              /* lowClosed= */ true,
+              convertDateStringToCqlDate(measurementPeriodEndDate),
+              /* highClosed= */ true);
+      context.setParameter(null, measurementPeriodName, measurementPeriod);
+    }
     // TODO(nasha): Set user defined parameters via `context.setParameter`.
     return context;
   }

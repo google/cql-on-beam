@@ -62,6 +62,8 @@ public class EvaluateCqlForContextFnTest {
       "{\"resourceType\": \"Patient\", \"id\": \"2\", \"birthDate\": \"2020-01-01\"}";
   private static final ZonedDateTime EVALUATION_TIME =
       ZonedDateTime.of(2022, 1, 7, 13, 14, 15, 0, ZoneOffset.UTC);
+  private static final String MEASUREMENT_PERIOD_START_DATE = "2022-01-12";
+  private static final String MEASUREMENT_PERIOD_END_DATE = "2023-01-12";
 
   private static CqlLibraryId cqlLibraryId(String name, String version) {
     return new CqlLibraryId(name, version);
@@ -96,16 +98,24 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "define \"Exp1\": true"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "define \"Exp1\": true"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getLibraryId()).isEqualTo(new CqlLibraryId("FooLibrary", "0.1"));
@@ -120,16 +130,24 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "define \"Exp1\": true"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", null)),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "define \"Exp1\": true"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", null)),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getLibraryId().getVersion()).isEqualTo("0.1");
@@ -144,16 +162,24 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "define \"Exp1\": true"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "define \"Exp1\": true"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getContexId()).isEqualTo(PATIENT_1_ID);
@@ -168,16 +194,24 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "define \"Exp1\": true"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "define \"Exp1\": true"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output)
         .satisfies(
@@ -204,10 +238,14 @@ public class EvaluateCqlForContextFnTest {
                         cqlToLibraries(
                             "library FooLibrary version '0.1'\n"
                                 + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
                                 + "define \"Exp1\": 5.0"),
                         ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
                         ImmutableList.of(),
                         EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
                         FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output)
@@ -235,10 +273,14 @@ public class EvaluateCqlForContextFnTest {
                         cqlToLibraries(
                             "library FooLibrary version '0.1'\n"
                                 + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
                                 + "define \"Exp1\": 'foo'"),
                         ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
                         ImmutableList.of(),
                         EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
                         FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output)
@@ -266,10 +308,14 @@ public class EvaluateCqlForContextFnTest {
                         cqlToLibraries(
                             "library FooLibrary version '0.1'\n"
                                 + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
                                 + "define \"Exp1\": 1"),
                         ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
                         ImmutableList.of(),
                         EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
                         FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output)
@@ -288,17 +334,25 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of("{\"resourceType\": \"Patient\", \"id\": \"1\"}"));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Patient\n"
-                    + "define \"Exp1\": AgeInYears() < 15"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "context Patient\n"
+                                + "define \"Exp1\": AgeInYears() < 15"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output)
         .satisfies(
@@ -311,35 +365,81 @@ public class EvaluateCqlForContextFnTest {
   }
 
   @Test
+  public void measurementPeriodIsPopulated() {
+    ImmutableMap<ResourceTypeAndId, Iterable<String>> input =
+        ImmutableMap.of(
+            PATIENT_1_ID, ImmutableList.of("{\"resourceType\": \"Patient\", \"id\": \"1\"}"));
+
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "context Patient\n"
+                                + "define \"Exp1\": AgeInYears() < 15"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
+
+    PAssert.thatSingleton(output)
+        .satisfies(
+            result -> {
+              assertThat(result.getMeasurementPeriod())
+                  .isEqualTo(new MeasurementPeriod("2022-01-12", "2023-01-12"));
+              return null;
+            });
+
+    testPipeline.run().waitUntilFinish();
+  }
+
+  @Test
   public void valueSetsAreLoaded() {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "valueset \"FooSet\": 'http://example.com/foovalueset'\n"
-                    + "codesystem \"FooSystem\": 'http://example.com/foosystem'\n"
-                    + "code \"Code3\": '3' from \"FooSystem\"\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Patient\n"
-                    + "define \"Exp1\": \"Code3\" in \"FooSet\""),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of("{"
-                + "\"resourceType\": \"ValueSet\","
-                + "\"url\": \"http://example.com/foovalueset\","
-                + "\"expansion\": {"
-                + "  \"contains\": ["
-                + "    {"
-                + "      \"system\": \"http://example.com/foosystem\","
-                + "      \"code\": \"3\""
-                + "    }"
-                + "  ]"
-                + "  }"
-                + "}"),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "valueset \"FooSet\": 'http://example.com/foovalueset'\n"
+                                + "codesystem \"FooSystem\": 'http://example.com/foosystem'\n"
+                                + "code \"Code3\": '3' from \"FooSystem\"\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "using FHIR version '4.0.1'\n"
+                                + "context Patient\n"
+                                + "define \"Exp1\": \"Code3\" in \"FooSet\""),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(
+                            "{"
+                                + "\"resourceType\": \"ValueSet\","
+                                + "\"url\": \"http://example.com/foovalueset\","
+                                + "\"expansion\": {"
+                                + "  \"contains\": ["
+                                + "    {"
+                                + "      \"system\": \"http://example.com/foosystem\","
+                                + "      \"code\": \"3\""
+                                + "    }"
+                                + "  ]"
+                                + "  }"
+                                + "}"),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output)
         .satisfies(
@@ -357,20 +457,28 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "valueset \"FooSet\": 'http://example.com/foovalueset'\n"
-                    + "codesystem \"FooSystem\": 'http://example.com/foosystem'\n"
-                    + "code \"Code3\": '3' from \"FooSystem\"\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Patient\n"
-                    + "define \"Exp1\": \"Code3\" in \"FooSet\""),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "valueset \"FooSet\": 'http://example.com/foovalueset'\n"
+                                + "codesystem \"FooSystem\": 'http://example.com/foosystem'\n"
+                                + "code \"Code3\": '3' from \"FooSystem\"\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "context Patient\n"
+                                + "define \"Exp1\": \"Code3\" in \"FooSet\""),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getError()).contains("http://example.com/foovalueset");
@@ -385,17 +493,25 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Unfiltered\n"
-                    + "define \"Exp1\": true"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "context Unfiltered\n"
+                                + "define \"Exp1\": true"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getResults()).isEmpty();
@@ -419,11 +535,15 @@ public class EvaluateCqlForContextFnTest {
                         cqlToLibraries(
                             "library FooLibrary version '0.1'\n"
                                 + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
                                 + "context Patient\n"
                                 + "define \"Exp1\": @2013-01-01"),
                         ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
                         ImmutableList.of(),
                         EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
                         FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
@@ -439,17 +559,25 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Patient\n"
-                    + "define \"Exp1\": (Interval[3, 1].high > 5)"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "context Patient\n"
+                                + "define \"Exp1\": (Interval[3, 1].high > 5)"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getResults()).isNull();
@@ -465,19 +593,27 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Unfiltered\n"
-                    + "define \"Exp1\": true\n"
-                    + "context Patient\n"
-                    + "define \"Exp2\": \"Exp1\""),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "context Unfiltered\n"
+                                + "define \"Exp1\": true\n"
+                                + "context Patient\n"
+                                + "define \"Exp2\": \"Exp1\""),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.thatSingleton(output).satisfies(result -> {
       assertThat(result.getError()).contains("Context switching is not supported.");
@@ -492,21 +628,29 @@ public class EvaluateCqlForContextFnTest {
     ImmutableMap<ResourceTypeAndId, Iterable<String>> input = ImmutableMap.of(
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "define \"Exp1\": true",
-                "library BarLibrary version '0.5'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "define \"ExpA\": false"),
-            ImmutableSet.of(
-                cqlLibraryId("FooLibrary", "0.1"),
-                cqlLibraryId("BarLibrary", "0.5")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "define \"Exp1\": true",
+                            "library BarLibrary version '0.5'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "using FHIR version '4.0.1'\n"
+                                + "define \"ExpA\": false"),
+                        ImmutableSet.of(
+                            cqlLibraryId("FooLibrary", "0.1"), cqlLibraryId("BarLibrary", "0.5")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.that(output)
         .containsInAnyOrder(
@@ -514,13 +658,13 @@ public class EvaluateCqlForContextFnTest {
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
-                new MeasurementPeriod(),
+                new MeasurementPeriod("2022-01-12", "2023-01-12"),
                 ImmutableMap.of("Exp1", new GenericExpressionValue(true))),
             new CqlEvaluationResult(
                 versionedIdentifier("BarLibrary", "0.5"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
-                new MeasurementPeriod(),
+                new MeasurementPeriod("2022-01-12", "2023-01-12"),
                 ImmutableMap.of("ExpA", new GenericExpressionValue(false))));
 
     testPipeline.run().waitUntilFinish();
@@ -532,17 +676,25 @@ public class EvaluateCqlForContextFnTest {
         PATIENT_1_ID, ImmutableList.of(PATIENT_1_AGE_21_RESOURCE_JSON),
         PATIENT_2_ID, ImmutableList.of(PATIENT_2_AGE_1_RESOURCE_JSON));
 
-    PCollection<CqlEvaluationResult> output = testPipeline.apply(Create.of(input))
-        .apply(ParDo.of(new EvaluateCqlForContextFn(
-            cqlToLibraries(
-                "library FooLibrary version '0.1'\n"
-                    + "using FHIR version '4.0.1'\n"
-                    + "context Patient\n"
-                    + "define \"YoungerThan18\": AgeInYears() < 18"),
-            ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
-            ImmutableList.of(),
-            EVALUATION_TIME,
-            FhirVersionEnum.R4)));
+    PCollection<CqlEvaluationResult> output =
+        testPipeline
+            .apply(Create.of(input))
+            .apply(
+                ParDo.of(
+                    new EvaluateCqlForContextFn(
+                        cqlToLibraries(
+                            "library FooLibrary version '0.1'\n"
+                                + "using FHIR version '4.0.1'\n"
+                                + "parameter \"MeasurementPeriod\" Interval<Date>"
+                                + "context Patient\n"
+                                + "define \"YoungerThan18\": AgeInYears() < 18"),
+                        ImmutableSet.of(cqlLibraryId("FooLibrary", "0.1")),
+                        ImmutableList.of(),
+                        EVALUATION_TIME,
+                        "MeasurementPeriod",
+                        MEASUREMENT_PERIOD_START_DATE,
+                        MEASUREMENT_PERIOD_END_DATE,
+                        FhirVersionEnum.R4)));
 
     PAssert.that(output)
         .containsInAnyOrder(
@@ -550,13 +702,13 @@ public class EvaluateCqlForContextFnTest {
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
-                new MeasurementPeriod(),
+                new MeasurementPeriod("2022-01-12", "2023-01-12"),
                 ImmutableMap.of("YoungerThan18", new GenericExpressionValue(false))),
             new CqlEvaluationResult(
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_2_ID,
                 EVALUATION_TIME,
-                new MeasurementPeriod(),
+                new MeasurementPeriod("2022-01-12", "2023-01-12"),
                 ImmutableMap.of("YoungerThan18", new GenericExpressionValue(true))));
 
     testPipeline.run().waitUntilFinish();
