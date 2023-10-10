@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.fhir.cql.beam.EvaluateCql.EvaluateCqlOptions;
 import com.google.fhir.cql.beam.types.CqlEvaluationResult;
 import com.google.fhir.cql.beam.types.GenericExpressionValue;
+import com.google.fhir.cql.beam.types.MeasurementPeriod;
 import com.google.fhir.cql.beam.types.ResourceTypeAndId;
 import java.io.File;
 import java.io.IOException;
@@ -132,12 +133,15 @@ public class EvaluateCqlTest {
         "  ]",
         "  }",
         "}");
-    writeLinesToFile(cqlFolder.resolve("foo.cql"),
+    writeLinesToFile(
+        cqlFolder.resolve("foo.cql"),
         "library FooLibrary version '0.1'",
         "valueset \"FooSet\": 'http://example.com/foovalueset'",
         "codesystem \"FooSystem\": 'http://example.com/foosystem'",
         "code \"Code3\": '3' from \"FooSystem\"",
         "using FHIR version '4.0.1'",
+        "parameter \"Measurement Period\" Interval<DateTime> default"
+            + " Interval[@2019-01-01T00:00:00.0, @2020-01-01T00:00:00.0)",
         "context Patient",
         "define \"Exp1\": Count([Condition: \"FooSet\"]) > 0");
 
@@ -156,11 +160,13 @@ public class EvaluateCqlTest {
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
+                new MeasurementPeriod("2019-01-01", "2020-01-01"),
                 ImmutableMap.of("Exp1", new GenericExpressionValue(true))),
             new CqlEvaluationResult(
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_2_ID,
                 EVALUATION_TIME,
+                new MeasurementPeriod("2019-01-01", "2020-01-01"),
                 ImmutableMap.of("Exp1", new GenericExpressionValue(false))));
   }
 

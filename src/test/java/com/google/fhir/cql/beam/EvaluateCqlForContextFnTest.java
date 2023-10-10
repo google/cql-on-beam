@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.fhir.cql.beam.types.CqlEvaluationResult;
 import com.google.fhir.cql.beam.types.CqlLibraryId;
 import com.google.fhir.cql.beam.types.GenericExpressionValue;
+import com.google.fhir.cql.beam.types.MeasurementPeriod;
 import com.google.fhir.cql.beam.types.ResourceTypeAndId;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -513,11 +514,13 @@ public class EvaluateCqlForContextFnTest {
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
+                new MeasurementPeriod(),
                 ImmutableMap.of("Exp1", new GenericExpressionValue(true))),
             new CqlEvaluationResult(
                 versionedIdentifier("BarLibrary", "0.5"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
+                new MeasurementPeriod(),
                 ImmutableMap.of("ExpA", new GenericExpressionValue(false))));
 
     testPipeline.run().waitUntilFinish();
@@ -547,11 +550,13 @@ public class EvaluateCqlForContextFnTest {
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_1_ID,
                 EVALUATION_TIME,
+                new MeasurementPeriod(),
                 ImmutableMap.of("YoungerThan18", new GenericExpressionValue(false))),
             new CqlEvaluationResult(
                 versionedIdentifier("FooLibrary", "0.1"),
                 PATIENT_2_ID,
                 EVALUATION_TIME,
+                new MeasurementPeriod(),
                 ImmutableMap.of("YoungerThan18", new GenericExpressionValue(true))));
 
     testPipeline.run().waitUntilFinish();

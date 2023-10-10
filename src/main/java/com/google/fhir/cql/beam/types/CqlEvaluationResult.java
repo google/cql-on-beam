@@ -56,23 +56,40 @@ public final class CqlEvaluationResult {
     }
 
     /** The schema for {@link CqlEvaluationResult}. */
-    public static Schema SCHEMA = builder(CqlEvaluationResult.class.getPackageName())
-        .record(CqlEvaluationResult.class.getSimpleName()).fields()
-            .name("contextId").type(schemaFor(ResourceTypeAndId.class)).noDefault()
-            .name("libraryId").type(schemaFor(CqlLibraryId.class)).noDefault()
+    public static Schema SCHEMA =
+        builder(CqlEvaluationResult.class.getPackageName())
+            .record(CqlEvaluationResult.class.getSimpleName())
+            .fields()
+            .name("contextId")
+            .type(schemaFor(ResourceTypeAndId.class))
+            .noDefault()
+            .name("libraryId")
+            .type(schemaFor(CqlLibraryId.class))
+            .noDefault()
             .name("evaluationTime")
-                .type(timestampMillis().addToSchema(builder().longType()))
-                .noDefault()
-            .name("error").type(unionOf().nullType().and().stringType().endUnion()).noDefault()
+            .type(timestampMillis().addToSchema(builder().longType()))
+            .noDefault()
+            .name("measurementPeriod")
+            .type(schemaFor(MeasurementPeriod.class))
+            .noDefault()
+            .name("error")
+            .type(unionOf().nullType().and().stringType().endUnion())
+            .noDefault()
             .name("results")
-                .type(unionOf()
-                    .nullType().and()
-                    .map().values().unionOf()
-                        .nullType().and()
-                        .type(schemaFor(GenericExpressionValue.class)).endUnion()
+            .type(
+                unionOf()
+                    .nullType()
+                    .and()
+                    .map()
+                    .values()
+                    .unionOf()
+                    .nullType()
+                    .and()
+                    .type(schemaFor(GenericExpressionValue.class))
+                    .endUnion()
                     .endUnion())
-                .noDefault()
-        .endRecord();
+            .noDefault()
+            .endRecord();
 
     private static Schema schemaFor(Class<?> clazz) {
       return builder(clazz.getPackageName()).type(AvroCoder.of(clazz).getSchema());
@@ -97,6 +114,7 @@ public final class CqlEvaluationResult {
   private CqlLibraryId libraryId;
   private ResourceTypeAndId contextId;
   private long evaluationTime;
+  private MeasurementPeriod measurementPeriod;
   @Nullable private String error;
   @Nullable private Map<String, GenericExpressionValue> results;
 
@@ -107,10 +125,12 @@ public final class CqlEvaluationResult {
       VersionedIdentifier cqlLibraryIdentifier,
       ResourceTypeAndId contextId,
       ZonedDateTime evaluationDateTime,
+      MeasurementPeriod measurementPeriod,
       Map<String, GenericExpressionValue> results) {
     this.libraryId = new CqlLibraryId(cqlLibraryIdentifier);
     this.contextId = checkNotNull(contextId);
     this.evaluationTime = evaluationDateTime.toInstant().toEpochMilli();
+    this.measurementPeriod = measurementPeriod;
     this.results =
         Collections.unmodifiableMap(new HashMap<String, GenericExpressionValue>(results));
   }
@@ -119,10 +139,12 @@ public final class CqlEvaluationResult {
       VersionedIdentifier cqlLibraryIdentifier,
       ResourceTypeAndId contextId,
       ZonedDateTime evaluationDateTime,
+      MeasurementPeriod measurementPeriod,
       Exception exception) {
     this.libraryId = new CqlLibraryId(cqlLibraryIdentifier);
     this.contextId = checkNotNull(contextId);
     this.evaluationTime = evaluationDateTime.toInstant().toEpochMilli();
+    this.measurementPeriod = measurementPeriod;
     this.error = exception.getMessage();
   }
 
@@ -136,6 +158,10 @@ public final class CqlEvaluationResult {
 
   public Instant getEvaluationTime() {
     return Instant.ofEpochMilli(evaluationTime);
+  }
+
+  public MeasurementPeriod getMeasurementPeriod() {
+    return measurementPeriod;
   }
 
   public String getError() {
@@ -152,6 +178,7 @@ public final class CqlEvaluationResult {
         .add("libraryId", libraryId)
         .add("contextId", contextId)
         .add("evaluationTime", evaluationTime)
+        .add("measurementPeriod", measurementPeriod)
         .add("results", results)
         .add("error", error)
         .toString();
@@ -159,7 +186,7 @@ public final class CqlEvaluationResult {
 
   @Override
   public int hashCode() {
-    return Objects.hash(libraryId, contextId, evaluationTime, results, error);
+    return Objects.hash(libraryId, contextId, evaluationTime, measurementPeriod, results, error);
   }
 
   @Override
@@ -171,6 +198,7 @@ public final class CqlEvaluationResult {
     return this.libraryId.equals(that.libraryId)
         && this.contextId.equals(that.contextId)
         && this.evaluationTime == that.evaluationTime
+        && this.measurementPeriod.equals(that.measurementPeriod)
         && Objects.equals(this.results, that.results)
         && Objects.equals(this.error, that.error);
   }

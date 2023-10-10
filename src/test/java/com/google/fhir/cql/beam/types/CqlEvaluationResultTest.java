@@ -37,6 +37,9 @@ public class CqlEvaluationResultTest {
   private static final ZonedDateTime EVALUATION_TIME_2 =
       ZonedDateTime.of(2022, 2, 2, 2, 2, 2, 2, ZoneOffset.UTC);
 
+  private static final MeasurementPeriod MEASUREMENT_PERIOD_1 =
+      new MeasurementPeriod("2019-01-01", "2020-01-01");
+
   private static final ResourceTypeAndId PATIENT_1 = new ResourceTypeAndId("Patient", "1");
 
   private static final VersionedIdentifier libraryBar1 =
@@ -47,7 +50,8 @@ public class CqlEvaluationResultTest {
   @Test
   public void getLibraryId() {
     CqlEvaluationResult result =
-        new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, emptyMap());
+        new CqlEvaluationResult(
+            libraryBar1, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, emptyMap());
 
     assertThat(result.getLibraryId()).isEqualTo(new CqlLibraryId(libraryBar1));
   }
@@ -55,7 +59,8 @@ public class CqlEvaluationResultTest {
   @Test
   public void getContextId() {
     CqlEvaluationResult result =
-        new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, emptyMap());
+        new CqlEvaluationResult(
+            libraryBar1, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, emptyMap());
 
     assertThat(result.getContexId()).isEqualTo(PATIENT_1);
   }
@@ -63,7 +68,8 @@ public class CqlEvaluationResultTest {
   @Test
   public void getEvaluationTime_truncatesToMilliseconds() {
     CqlEvaluationResult result =
-        new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, emptyMap());
+        new CqlEvaluationResult(
+            libraryBar1, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, emptyMap());
 
     assertThat(result.getEvaluationTime())
         .isEqualTo(EVALUATION_TIME_1.truncatedTo(ChronoUnit.MILLIS).toInstant());
@@ -71,8 +77,13 @@ public class CqlEvaluationResultTest {
 
   @Test
   public void getError() {
-    CqlEvaluationResult result = new CqlEvaluationResult(
-        libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("An exception"));
+    CqlEvaluationResult result =
+        new CqlEvaluationResult(
+            libraryBar1,
+            PATIENT_1,
+            EVALUATION_TIME_1,
+            MEASUREMENT_PERIOD_1,
+            new RuntimeException("An exception"));
 
     assertThat(result.getError()).isEqualTo("An exception");
   }
@@ -80,7 +91,8 @@ public class CqlEvaluationResultTest {
   @Test
   public void getError_returnsNullWhenNoErrorExists() {
     CqlEvaluationResult result =
-        new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, emptyMap());
+        new CqlEvaluationResult(
+            libraryBar1, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, emptyMap());
 
     assertThat(result.getError()).isNull();
   }
@@ -88,8 +100,13 @@ public class CqlEvaluationResultTest {
 
   @Test
   public void getResults_returnsNullWhenErrorExists() {
-    CqlEvaluationResult result = new CqlEvaluationResult(
-        libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("An exception"));
+    CqlEvaluationResult result =
+        new CqlEvaluationResult(
+            libraryBar1,
+            PATIENT_1,
+            EVALUATION_TIME_1,
+            MEASUREMENT_PERIOD_1,
+            new RuntimeException("An exception"));
 
     assertThat(result.getResults()).isNull();
   }
@@ -101,9 +118,24 @@ public class CqlEvaluationResultTest {
             "Foo", new GenericExpressionValue(true), "Bar", new GenericExpressionValue(false));
 
     CqlEvaluationResult result =
-        new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, results);
+        new CqlEvaluationResult(
+            libraryBar1, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, results);
 
     assertThat(result.getResults()).isEqualTo(results);
+  }
+
+  @Test
+  public void getMeasurementPeriod() {
+
+    Map<String, GenericExpressionValue> results =
+        ImmutableMap.of(
+            "Foo", new GenericExpressionValue(true), "Bar", new GenericExpressionValue(false));
+
+    CqlEvaluationResult result =
+        new CqlEvaluationResult(
+            libraryBar1, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, results);
+
+    assertThat(result.getMeasurementPeriod()).isEqualTo(MEASUREMENT_PERIOD_1);
   }
 
   @Test
@@ -114,29 +146,57 @@ public class CqlEvaluationResultTest {
                 libraryBar1,
                 PATIENT_1,
                 EVALUATION_TIME_1,
+                MEASUREMENT_PERIOD_1,
                 ImmutableMap.of("Numerator", new GenericExpressionValue(false))),
             new CqlEvaluationResult(
                 libraryBar1,
                 PATIENT_1,
                 EVALUATION_TIME_1,
+                MEASUREMENT_PERIOD_1,
                 ImmutableMap.of("Numerator", new GenericExpressionValue(false))))
         .addEqualityGroup(
-            new CqlEvaluationResult(libraryBar1, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of()))
-        .addEqualityGroup(
-            new CqlEvaluationResult(libraryBar2, PATIENT_1, EVALUATION_TIME_1, ImmutableMap.of()))
-        .addEqualityGroup(
-            new CqlEvaluationResult(libraryBar2, PATIENT_1, EVALUATION_TIME_2, ImmutableMap.of()))
+            new CqlEvaluationResult(
+                libraryBar1, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, ImmutableMap.of()))
         .addEqualityGroup(
             new CqlEvaluationResult(
-                libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Exception")),
-            new CqlEvaluationResult(
-                libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Exception")))
+                libraryBar1,
+                PATIENT_1,
+                EVALUATION_TIME_1,
+                new MeasurementPeriod(),
+                ImmutableMap.of()))
         .addEqualityGroup(
             new CqlEvaluationResult(
-                libraryBar1, PATIENT_1, EVALUATION_TIME_1, new RuntimeException("Other exception")))
+                libraryBar2, PATIENT_1, EVALUATION_TIME_1, MEASUREMENT_PERIOD_1, ImmutableMap.of()))
         .addEqualityGroup(
             new CqlEvaluationResult(
-                libraryBar1, PATIENT_1, EVALUATION_TIME_2, new RuntimeException("Exception")))
+                libraryBar2, PATIENT_1, EVALUATION_TIME_2, MEASUREMENT_PERIOD_1, ImmutableMap.of()))
+        .addEqualityGroup(
+            new CqlEvaluationResult(
+                libraryBar1,
+                PATIENT_1,
+                EVALUATION_TIME_1,
+                MEASUREMENT_PERIOD_1,
+                new RuntimeException("Exception")),
+            new CqlEvaluationResult(
+                libraryBar1,
+                PATIENT_1,
+                EVALUATION_TIME_1,
+                MEASUREMENT_PERIOD_1,
+                new RuntimeException("Exception")))
+        .addEqualityGroup(
+            new CqlEvaluationResult(
+                libraryBar1,
+                PATIENT_1,
+                EVALUATION_TIME_1,
+                MEASUREMENT_PERIOD_1,
+                new RuntimeException("Other exception")))
+        .addEqualityGroup(
+            new CqlEvaluationResult(
+                libraryBar1,
+                PATIENT_1,
+                EVALUATION_TIME_2,
+                MEASUREMENT_PERIOD_1,
+                new RuntimeException("Exception")))
         .testEquals();
   }
 }

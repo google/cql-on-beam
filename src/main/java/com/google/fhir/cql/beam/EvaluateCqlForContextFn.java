@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.fhir.cql.beam.types.CqlEvaluationResult;
 import com.google.fhir.cql.beam.types.CqlLibraryId;
 import com.google.fhir.cql.beam.types.GenericExpressionValue;
+import com.google.fhir.cql.beam.types.MeasurementPeriod;
 import com.google.fhir.cql.beam.types.ResourceTypeAndId;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +38,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,9 +46,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
 import org.apache.beam.sdk.values.KV;
 import org.cqframework.cql.elm.execution.ExpressionDef;
 import org.cqframework.cql.elm.execution.Library;
+import org.cqframework.cql.elm.execution.ParameterDef;
 import org.cqframework.cql.elm.execution.VersionedIdentifier;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleType;
@@ -58,6 +62,9 @@ import org.opencds.cqf.cql.engine.execution.LibraryLoader;
 import org.opencds.cqf.cql.engine.fhir.model.R4FhirModelResolver;
 import org.opencds.cqf.cql.engine.model.ModelResolver;
 import org.opencds.cqf.cql.engine.retrieve.RetrieveProvider;
+import org.opencds.cqf.cql.engine.runtime.Date;
+import org.opencds.cqf.cql.engine.runtime.DateTime;
+import org.opencds.cqf.cql.engine.runtime.Interval;
 import org.opencds.cqf.cql.engine.serializing.jackson.JsonCqlMapper;
 import org.opencds.cqf.cql.engine.terminology.TerminologyProvider;
 import org.opencds.cqf.cql.evaluator.engine.retrieve.BundleRetrieveProvider;
@@ -174,19 +181,51 @@ public final class EvaluateCqlForContextFn
     for (VersionedIdentifier cqlLibraryId : cqlLibraryVersionedIdentifiers) {
       Library library = libraryLoader.load(cqlLibraryId);
       Context context = createContext(library, retrieveProvider, contextResources.getKey());
+      MeasurementPeriod measurementPeriod = fetchMeasurementPeriod(library, context);
       try {
+        out.output(new CqlEvaluationResult(
+                library.getIdentifier(),
+                contextResources.getKey(),
+                evaluationDateTime,
+                measurementPeriod,
+                evaluate(library, context, contextResources.getKey())));
+      } catch (Exception e) {
         out.output(
             new CqlEvaluationResult(
                 library.getIdentifier(),
                 contextResources.getKey(),
                 evaluationDateTime,
-                evaluate(library, context, contextResources.getKey())));
-      } catch (Exception e) {
-        out.output(
-            new CqlEvaluationResult(
-                library.getIdentifier(), contextResources.getKey(), evaluationDateTime, e));
+                measurementPeriod,
+                e));
       }
     }
+  }
+
+  private MeasurementPeriod fetchMeasurementPeriod(Library library, Context context) {
+    if (library.getParameters() == null) {
+      return new MeasurementPeriod();
+    }
+
+    for (ParameterDef parameter : library.getParameters().getDef()) {
+      // Based on the assumption that normally measurement period parameter is named this way
+      // in CQL scripts.
+      if (parameter.getName().equals("MeasurementPeriod")
+          || parameter.getName().equals("Measurement Period")) {
+        Interval interval = (Interval) parameter.getDefault().evaluate(context);
+        DateTime startDate = (DateTime) interval.getLow();
+        DateTime endDate = (DateTime) interval.getHigh();
+        // Truncating the exact time of the specified date as that is not needed.
+        return new MeasurementPeriod(
+            truncateDateTime(startDate).toString(), truncateDateTime(endDate).toString());
+      }
+    }
+    return new MeasurementPeriod();
+  }
+
+  private Date truncateDateTime(DateTime dateTime) {
+    OffsetDateTime offsetDateTime = dateTime.getDateTime();
+    return new Date(
+        offsetDateTime.getYear(), offsetDateTime.getMonthValue(), offsetDateTime.getDayOfMonth());
   }
 
   private Map<String, GenericExpressionValue> evaluate(
