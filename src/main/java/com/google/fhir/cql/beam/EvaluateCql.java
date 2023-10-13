@@ -179,6 +179,14 @@ public final class EvaluateCql {
     String getMeasurementPeriodEndDate();
 
     void setMeasurementPeriodEndDate(String value);
+
+    @Description(
+        "If this is set to true, the pipeline will not use waitUntilFinish as this is not supported"
+            + " with Dataflow jobs created using Flex Templates.")
+    @Default.Boolean(false)
+    Boolean getUseDataflowFlexTemplate();
+
+    void setUseDataflowFlexTemplate(Boolean value);
   }
 
   private static ImmutableList<String> loadFilesInDirectory(
@@ -345,7 +353,12 @@ public final class EvaluateCql {
         PipelineOptionsFactory.fromArgs(args).withValidation().as(EvaluateCqlOptions.class);
     Pipeline pipeline = pipelineCreator.apply(options);
     assemblePipeline(pipeline, options, evaluationDateTime);
-    pipeline.run().waitUntilFinish();
+
+    if (options.getUseDataflowFlexTemplate()) {
+      pipeline.run();
+    } else {
+      pipeline.run().waitUntilFinish();
+    }
   }
 
   public static void main(String[] args) {
