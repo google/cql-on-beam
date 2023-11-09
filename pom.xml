@@ -292,6 +292,10 @@
       <artifactId>evaluator.fhir</artifactId>
       <version>${cql.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-bigquery</artifactId>
+    </dependency>
 
     <!-- Test dependencies -->
     <dependency>

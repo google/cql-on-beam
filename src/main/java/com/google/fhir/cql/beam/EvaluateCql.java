@@ -21,6 +21,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import ca.uhn.fhir.context.FhirVersionEnum;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryException;
+import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.TableId;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -249,6 +254,16 @@ public final class EvaluateCql {
         .collect(toImmutableList());
   }
 
+  private static Schema getBigQueryTableSchema(
+      BigQuery bigquery, String projectId, String datasetName, String tableName) {
+    try {
+      TableId tableId = TableId.of(projectId, datasetName, tableName);
+      return bigquery.getTable(tableId).getDefinition().getSchema();
+    } catch (BigQueryException e) {
+      throw new RuntimeException("Failed to retrieve table: " + e.toString(), e);
+    }
+  }
+
   private static PCollection<String> fetchSourceData(
       Pipeline pipeline, EvaluateCqlOptions options) {
     if (!options.getReadFromBigQuery()) {
@@ -266,8 +281,15 @@ public final class EvaluateCql {
         !(options.getDatasetName() == null),
         "BigQuery dataset must be specified when reading from BigQuery.");
 
+    // Initialize the client that will be used to fetch the table schemas. This client only needs to
+    // be created once, and can be reused for multiple requests.
+    BigQuery bigqueryClient = BigQueryOptions.getDefaultInstance().getService();
     PCollectionList<String> allTableRows = PCollectionList.<String>empty(pipeline);
     for (String table : options.getBigQueryTables()) {
+      Schema schema =
+          getBigQueryTableSchema(
+              bigqueryClient, options.getBigQueryProjectName(), options.getDatasetName(), table);
+
       PCollection<String> tableRows =
           pipeline
               .apply(
@@ -280,7 +302,8 @@ public final class EvaluateCql {
                       .withMethod(TypedRead.Method.DIRECT_READ))
               .apply(
                   "ConvertTableRowToJson",
-                  ParDo.of(TableRowToJsonConverter.from(table, options.getBigQueryTables())));
+                  ParDo.of(
+                      TableRowToJsonConverter.from(table, schema, options.getBigQueryTables())));
 
       allTableRows = allTableRows.and(tableRows);
     }
