@@ -34,7 +34,7 @@
     <maven-shade-plugin.version>3.4.1</maven-shade-plugin.version>
     <maven-surefire-plugin.version>3.0.0-M5</maven-surefire-plugin.version>
 
-    <avro.version>1.11.1</avro.version>
+    <avro.version>1.11.3</avro.version>
     <beam.version>2.46.0</beam.version>
     <cql.version>2.6.0</cql.version>
     <gson.version>2.10</gson.version>
